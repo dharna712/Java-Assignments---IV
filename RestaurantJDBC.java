@@ -1,287 +1,251 @@
-import javafx.collections.FXCollections;
-import javafx.collections.ObservableList;
-import javafx.geometry.Insets;
-import javafx.geometry.Pos;
-import javafx.scene.Scene;
-import javafx.scene.control.*;
-import javafx.scene.control.cell.PropertyValueFactory;
-import javafx.scene.layout.*;
-import javafx.stage.Stage;
-import java.util.ArrayList;
+import java.sql.*;
 
+public class RestaurantJDBC {
 
-public class MenuItemUI {
+    static final String URL = "jdbc:mysql://localhost:3306/restaurant_db";
+    static final String USER = "root";
+    static final String PASS = "sit123";
 
-    private Stage stage;
-    private TableView<MenuItemRow> tableView;
-    private ObservableList<MenuItemRow> data;
+    public static Connection getConnection() throws Exception {
+        Class.forName("com.mysql.cj.jdbc.Driver");
+        String serverUrl = "jdbc:mysql://localhost:3306/";
+        try (Connection serverCon = DriverManager.getConnection(serverUrl, USER, PASS);
+             Statement st = serverCon.createStatement()) {
+            st.executeUpdate("CREATE DATABASE IF NOT EXISTS restaurant_db");
+        }
 
-    // Input fields
-    private TextField idField;
-    private TextField nameField;
-    private TextField priceField;
-    private TextField resIdField;
-    private TextField filterPriceField; 
-
-    private Label statusLabel;
-
-    public MenuItemUI(Stage stage) {
-        this.stage = stage;
+        return DriverManager.getConnection(URL, USER, PASS);
     }
 
-    public void show() {
+    public static void createTables(Connection con) throws Exception {
+        try (Statement st = con.createStatement()) {
+            String createRestaurant = "CREATE TABLE Restaurant (" +
+                    "Id INT PRIMARY KEY, " +
+                    "Name VARCHAR(255), " +
+                    "Address VARCHAR(255))";
+            st.executeUpdate(createRestaurant);
+            String createMenuItem = "CREATE TABLE MenuItem (" +
+                    "Id INT PRIMARY KEY, " +
+                    "Name VARCHAR(255), " +
+                    "Price DOUBLE, " +
+                    "ResId INT, " +
+                    "FOREIGN KEY (ResId) REFERENCES Restaurant(Id))";
+            st.executeUpdate(createMenuItem);
+        }
+    }
 
-        // ── TOP: Title + Back ─────────────────────────────────────
-        Label title = new Label("MenuItem Table - CRUD Operations");
-        title.setStyle("-fx-font-size: 16px; -fx-font-weight: bold;");
+    public static void insertData(Connection con) throws Exception {
+        String insertRestaurant = "INSERT INTO Restaurant VALUES (?, ?, ?)";
+        String insertMenu = "INSERT INTO MenuItem VALUES (?, ?, ?, ?)";
 
-        Button backBtn = new Button("← Back to Menu");
-        backBtn.setOnAction(e -> MainApp.showMainMenu(stage));
+        try (PreparedStatement ps1 = con.prepareStatement(insertRestaurant);
+             PreparedStatement ps2 = con.prepareStatement(insertMenu)) {
 
-        HBox topBar = new HBox(20, backBtn, title);
-        topBar.setAlignment(Pos.CENTER_LEFT);
-        topBar.setPadding(new Insets(10));
+            Object[][] restaurants = {
+                {1, "Cafe Java", "101 Main St"},
+                {2, "Pizza Palace", "202 Oak Ave"},
+                {3, "Burger Joint", "303 Pine Rd"},
+                {4, "The Pasta Place", "404 Elm St"},
+                {5, "Taco Corner", "505 Maple Dr"},
+                {6, "Sub Shop", "606 Cedar Ln"},
+                {7, "Sushi World", "707 Birch Blvd"},
+                {8, "Steakhouse", "808 Walnut St"},
+                {9, "Vegan Bites", "909 Cherry Way"},
+                {10, "Breakfast Club", "1010 Ash Ct"}
+            };
 
-        tableView = new TableView<MenuItemRow>();
-        data = FXCollections.observableArrayList();
-        tableView.setItems(data);
-
-        TableColumn<MenuItemRow, String> idCol = new TableColumn<>("ID");
-        idCol.setCellValueFactory(new PropertyValueFactory<>("id"));
-        idCol.setPrefWidth(55);
-
-        TableColumn<MenuItemRow, String> nameCol = new TableColumn<>("Name");
-        nameCol.setCellValueFactory(new PropertyValueFactory<>("name"));
-        nameCol.setPrefWidth(140);
-
-        TableColumn<MenuItemRow, String> priceCol = new TableColumn<>("Price");
-        priceCol.setCellValueFactory(new PropertyValueFactory<>("price"));
-        priceCol.setPrefWidth(90);
-
-        TableColumn<MenuItemRow, String> resIdCol = new TableColumn<>("ResID");
-        resIdCol.setCellValueFactory(new PropertyValueFactory<>("resId"));
-        resIdCol.setPrefWidth(70);
-
-        tableView.getColumns().addAll(idCol, nameCol, priceCol, resIdCol);
-
-        tableView.setOnMouseClicked(e -> {
-            MenuItemRow selected = tableView.getSelectionModel().getSelectedItem();
-            if (selected != null) {
-                idField.setText(selected.getId());
-                nameField.setText(selected.getName());
-                priceField.setText(selected.getPrice());
-                resIdField.setText(selected.getResId());
+            for (Object[] r : restaurants) {
+                ps1.setInt(1, (Integer) r[0]);
+                ps1.setString(2, (String) r[1]);
+                ps1.setString(3, (String) r[2]);
+                ps1.executeUpdate();
             }
-        });
 
-        Label idLbl    = new Label("ID:");
-        Label nameLbl  = new Label("Name:");
-        Label priceLbl = new Label("Price:");
-        Label resLbl   = new Label("ResId:");
+            Object[][] menuItems = {
+                {101, "Coffee", 50.0, 1},      
+                {102, "Tea", 40.0, 1},          
+                {103, "Pastry", 120.0, 1},     
+                {104, "Pizza", 250.0, 2},       
+                {105, "Burger", 80.0, 3},      
+                {106, "Pasta", 180.0, 4},       
+                {107, "Taco", 60.0, 5},        
+                {108, "Pancake", 90.0, 10},    
+                {109, "Salad", 110.0, 9},      
+                {110, "Steak", 500.0, 8}      
+            };
 
-        idField    = new TextField(); idField.setPromptText("e.g. 111");
-        nameField  = new TextField(); nameField.setPromptText("e.g. Dosa");
-        priceField = new TextField(); priceField.setPromptText("e.g. 80.0");
-        resIdField = new TextField(); resIdField.setPromptText("e.g. 1");
+            for (Object[] m : menuItems) {
+                ps2.setInt(1, (Integer) m[0]);
+                ps2.setString(2, (String) m[1]);
+                ps2.setDouble(3, (Double) m[2]);
+                ps2.setInt(4, (Integer) m[3]);
+                ps2.executeUpdate();
+            }
 
-        GridPane form = new GridPane();
-        form.setHgap(10);
-        form.setVgap(10);
-        form.setPadding(new Insets(10));
-        form.add(idLbl,    0, 0); form.add(idField,    1, 0);
-        form.add(nameLbl,  0, 1); form.add(nameField,  1, 1);
-        form.add(priceLbl, 0, 2); form.add(priceField, 1, 2);
-        form.add(resLbl,   0, 3); form.add(resIdField, 1, 3);
-
-        Button insertBtn = new Button("INSERT");
-        Button selectBtn = new Button("SELECT ALL");
-        Button updateBtn = new Button("UPDATE");
-        Button deleteBtn = new Button("DELETE");
-        Button clearBtn  = new Button("Clear Fields");
-
-        insertBtn.setPrefWidth(130);
-        selectBtn.setPrefWidth(130);
-        updateBtn.setPrefWidth(130);
-        deleteBtn.setPrefWidth(130);
-        clearBtn.setPrefWidth(130);
-
-        insertBtn.setStyle("-fx-background-color: #4CAF50; -fx-text-fill: white;");
-        selectBtn.setStyle("-fx-background-color: #2196F3; -fx-text-fill: white;");
-        updateBtn.setStyle("-fx-background-color: #FF9800; -fx-text-fill: white;");
-        deleteBtn.setStyle("-fx-background-color: #f44336; -fx-text-fill: white;");
-
-        Label filterLbl = new Label("Filter: Price ≤");
-        filterPriceField = new TextField();
-        filterPriceField.setPromptText("e.g. 100");
-        filterPriceField.setPrefWidth(70);
-
-        Button filterBtn = new Button("GO");
-        filterBtn.setStyle("-fx-background-color: #9C27B0; -fx-text-fill: white;");
-
-        HBox filterBox = new HBox(8, filterLbl, filterPriceField, filterBtn);
-        filterBox.setAlignment(Pos.CENTER_LEFT);
-        filterBox.setPadding(new Insets(5, 0, 0, 0));
-
-        VBox buttonBox = new VBox(10, insertBtn, selectBtn, updateBtn, deleteBtn, clearBtn, filterBox);
-        buttonBox.setPadding(new Insets(10));
-
-        VBox rightPanel = new VBox(15, form, buttonBox);
-        rightPanel.setPadding(new Insets(10));
-        rightPanel.setPrefWidth(300);
-
-        statusLabel = new Label("Ready. Click SELECT ALL to load data.");
-        statusLabel.setStyle("-fx-padding: 8px; -fx-font-size: 13px;");
-
-        insertBtn.setOnAction(e -> handleInsert());
-        selectBtn.setOnAction(e -> handleSelectAll());
-        updateBtn.setOnAction(e -> handleUpdate());
-        deleteBtn.setOnAction(e -> handleDelete());
-        filterBtn.setOnAction(e -> handleFilterByPrice());
-
-        clearBtn.setOnAction(e -> {
-            idField.clear(); nameField.clear();
-            priceField.clear(); resIdField.clear();
-            statusLabel.setText("Fields cleared.");
-        });
-
-        BorderPane root = new BorderPane();
-        root.setTop(topBar);
-        root.setCenter(tableView);
-        root.setRight(rightPanel);
-        root.setBottom(statusLabel);
-        BorderPane.setMargin(tableView, new Insets(0, 10, 0, 10));
-
-        Scene scene = new Scene(root, 820, 480);
-        stage.setTitle("Manage Menu Items");
-        stage.setScene(scene);
-        stage.show();
-
-        handleSelectAll();
+            System.out.println("Inserted 10 specific records in each table.");
+        }
     }
 
-    private void handleInsert() {
+    public static void displayAllRestaurants(Connection con) throws Exception {
+        String query = "SELECT * FROM Restaurant";
+        try (Statement st = con.createStatement();
+             ResultSet rs = st.executeQuery(query)) {
+            System.out.println("\nAll Restaurants After Insert:");
+            System.out.printf("%-5s %-20s %-30s\n", "ID", "Name", "Address");
+            System.out.println("---------------------------------------------------------------");
+            while (rs.next()) {
+                System.out.printf("%-5d %-20s %-30s\n",
+                        rs.getInt("Id"),
+                        rs.getString("Name"),
+                        rs.getString("Address"));
+            }
+        }
+    }
+
+    public static void displayAllMenuAfterInsert(Connection con) throws Exception {
+        String query = "SELECT * FROM MenuItem";
+        try (Statement st = con.createStatement();
+             ResultSet rs = st.executeQuery(query)) {
+            System.out.println("\nAll Menu Items After Insert:");
+            printMenu(rs);
+        }
+    }
+
+    public static void selectPriceLessThan100(Connection con) throws Exception {
+
+        String query = "SELECT * FROM MenuItem WHERE Price <= 100";
+        try (Statement st = con.createStatement();
+             ResultSet rs = st.executeQuery(query)) {
+
+            System.out.println("\nMenu Items with Price <= 100:");
+            printMenu(rs);
+        }
+    }
+
+    public static void selectCafeJavaItems(Connection con) throws Exception {
+
+        String query = "SELECT m.* FROM MenuItem m " +
+                "JOIN Restaurant r ON m.ResId = r.Id " +
+                "WHERE r.Name = 'Cafe Java'";
+
+        try (Statement st = con.createStatement();
+             ResultSet rs = st.executeQuery(query)) {
+
+            System.out.println("\nItems from Cafe Java:");
+            printMenu(rs);
+        }
+    }
+
+    public static void updatePrice(Connection con) throws Exception {
+
+        String query = "UPDATE MenuItem SET Price = 200 WHERE Price <= 100";
+        try (Statement st = con.createStatement()) {
+            int rows = st.executeUpdate(query);
+            System.out.println("\nUpdated rows (Price <= 100 to 200): " + rows);
+        }
+        
+        // Display menu items after update
+        String selectQuery = "SELECT * FROM MenuItem ORDER BY Id";
+        try (Statement st = con.createStatement();
+             ResultSet rs = st.executeQuery(selectQuery)) {
+            System.out.println("\nMenu Items After Update:");
+            printMenu(rs);
+        }
+    }
+
+    public static void deleteItems(Connection con) throws Exception {
+
+        String query = "DELETE FROM MenuItem WHERE Name LIKE 'P%'";
+        try (Statement st = con.createStatement()) {
+            int rows = st.executeUpdate(query);
+            System.out.println("\nDeleted rows (Name starting with 'P'): " + rows);
+        }
+        
+        String selectQuery = "SELECT * FROM MenuItem ORDER BY Id";
+        try (Statement st = con.createStatement();
+             ResultSet rs = st.executeQuery(selectQuery)) {
+            System.out.println("\nMenu Items After Deletion:");
+            printMenu(rs);
+        }
+    }
+
+    public static void selectAllItems(Connection con) throws Exception {
+        String query = "SELECT * FROM MenuItem";
+        try (Statement st = con.createStatement();
+             ResultSet rs = st.executeQuery(query)) {
+
+            System.out.println("\nFinal Menu Items Data:");
+            printMenu(rs);
+        }
+    }
+
+    public static void printMenu(ResultSet rs) throws Exception {
+
+        System.out.printf("%-5s %-15s %-10s %-10s\n", "ID", "Name", "Price", "ResId");
+
+        boolean hasRows = false;
+        while (rs.next()) {
+            hasRows = true;
+            System.out.printf("%-5d %-15s %-10.2f %-10d\n",
+                    rs.getInt("Id"),
+                    rs.getString("Name"),
+                    rs.getDouble("Price"),
+                    rs.getInt("ResId"));
+        }
+        
+        if (!hasRows) {
+            System.out.println("(No records found)");
+        }
+    }
+    public static void main(String[] args) {
+        System.out.println("Starting RestaurantJDBC Application...");
+
         try {
-            int    id    = Integer.parseInt(idField.getText().trim());
-            String name  = nameField.getText().trim();
-            double price = Double.parseDouble(priceField.getText().trim());
-            int    resId = Integer.parseInt(resIdField.getText().trim());
+            System.out.println("Connecting to MySQL database...");
+            Connection con = getConnection();
+            System.out.println(" Connected successfully!\n");
 
-            if (name.isEmpty()) {
-                setStatus("Name cannot be empty.", "red");
-                return;
-            }
+            System.out.println("Creating tables...");
+            createTables(con);
+            System.out.println();
 
-            RestaurantJDBC.insertMenuItem(MainApp.con, id, name, price, resId);
-            setStatus("Inserted: " + name + " (Price: " + price + ")", "green");
-            handleSelectAll();
+            System.out.println("Inserting data...");
+            insertData(con);
+            System.out.println();
 
-        } catch (NumberFormatException e) {
-            setStatus("ID, Price, ResId must be valid numbers.", "red");
+            System.out.println("Displaying all restaurants...");
+            displayAllRestaurants(con);
+            System.out.println();
+
+            System.out.println("Displaying all menu items after insert...");
+            displayAllMenuAfterInsert(con);
+            System.out.println();
+
+            System.out.println("Selecting items with Price <= 100...");
+            selectPriceLessThan100(con);
+            System.out.println();
+
+            System.out.println("Selecting items from Cafe Java...");
+            selectCafeJavaItems(con);
+            System.out.println();
+
+            System.out.println("Updating prices (Price <= 100 to 200)...");
+            updatePrice(con);
+            System.out.println();
+
+            System.out.println("Deleting items starting with 'P'...");
+            deleteItems(con);
+            System.out.println();
+
+            System.out.println("FINAL TABLE DATA AFTER ALL OPERATIONS");
+            selectAllItems(con);
+            System.out.println("\n Program completed successfully!\n");
+
+            con.close();
+
         } catch (Exception e) {
-            setStatus("Insert failed: " + e.getMessage(), "red");
+            System.err.println("ERROR: An unexpected error occurred!");
+            e.printStackTrace();
         }
-    }
-
-    private void handleSelectAll() {
-        try {
-            data.clear();
-            ArrayList<String[]> rows = RestaurantJDBC.getAllMenuItems(MainApp.con);
-
-            for (String[] row : rows) {
-                // row[0]=id, row[1]=name, row[2]=price, row[3]=resId
-                data.add(new MenuItemRow(row[0], row[1], row[2], row[3]));
-            }
-
-            setStatus("Loaded " + rows.size() + " menu item(s).", "blue");
-
-        } catch (Exception e) {
-            setStatus("Select failed: " + e.getMessage(), "red");
-        }
-    }
-
-    private void handleUpdate() {
-        try {
-            int    id    = Integer.parseInt(idField.getText().trim());
-            String name  = nameField.getText().trim();
-            double price = Double.parseDouble(priceField.getText().trim());
-            int    resId = Integer.parseInt(resIdField.getText().trim());
-
-            int rows = RestaurantJDBC.updateMenuItem(MainApp.con, id, name, price, resId);
-            if (rows > 0) {
-                setStatus("Updated MenuItem ID: " + id, "green");
-                handleSelectAll();
-            } else {
-                setStatus("No item found with ID: " + id, "red");
-            }
-
-        } catch (NumberFormatException e) {
-            setStatus("ID, Price, ResId must be valid numbers.", "red");
-        } catch (Exception e) {
-            setStatus("Update failed: " + e.getMessage(), "red");
-        }
-    }
-
-    private void handleDelete() {
-        try {
-            int id = Integer.parseInt(idField.getText().trim());
-
-            int rows = RestaurantJDBC.deleteMenuItem(MainApp.con, id);
-            if (rows > 0) {
-                setStatus("Deleted MenuItem ID: " + id, "green");
-                handleSelectAll();
-                idField.clear(); nameField.clear();
-                priceField.clear(); resIdField.clear();
-            } else {
-                setStatus("No item found with ID: " + id, "red");
-            }
-
-        } catch (NumberFormatException e) {
-            setStatus("ID must be a number.", "red");
-        } catch (Exception e) {
-            setStatus("Delete failed: " + e.getMessage(), "red");
-        }
-    }
-
-    private void handleFilterByPrice() {
-        try {
-            double maxPrice = Double.parseDouble(filterPriceField.getText().trim());
-            data.clear();
-
-            ArrayList<String[]> rows = RestaurantJDBC.getMenuItemsByMaxPrice(MainApp.con, maxPrice);
-            for (String[] row : rows) {
-                data.add(new MenuItemRow(row[0], row[1], row[2], row[3]));
-            }
-
-            setStatus("Showing " + rows.size() + " item(s) with Price ≤ " + maxPrice, "purple");
-
-        } catch (NumberFormatException e) {
-            setStatus("Enter a valid price to filter.", "red");
-        } catch (Exception e) {
-            setStatus("Filter failed: " + e.getMessage(), "red");
-        }
-    }
-
-    private void setStatus(String msg, String color) {
-        statusLabel.setText(msg);
-        statusLabel.setStyle("-fx-text-fill: " + color + "; -fx-padding: 8px; -fx-font-size: 13px;");
-    }
-
-    public static class MenuItemRow {
-        private String id;
-        private String name;
-        private String price;
-        private String resId;
-
-        public MenuItemRow(String id, String name, String price, String resId) {
-            this.id    = id;
-            this.name  = name;
-            this.price = price;
-            this.resId = resId;
-        }
-
-        public String getId()    { return id; }
-        public String getName()  { return name; }
-        public String getPrice() { return price; }
-        public String getResId() { return resId; }
     }
 }
